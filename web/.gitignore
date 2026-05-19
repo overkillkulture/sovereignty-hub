@@ -1,0 +1,21 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.sample
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Supabase CLI cache (linked project ref, version strings, pooler URL)
+supabase/.temp
