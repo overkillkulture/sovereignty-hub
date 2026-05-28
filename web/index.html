@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Sovereignty Hub — Where Are You?</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+<div id="app">
+  <div id="panel">
+    <div id="header">
+      <div id="progress-area">
+        <div id="progress-label-top">
+          <span class="pin" id="progress-pillar">Pillar 1 · Water</span>
+          <span id="ptext-count">1 / 91</span>
+        </div>
+        <div id="progress-bar-wrap">
+          <div id="progress-bar"></div>
+          <div id="progress-ticks"></div>
+          <div id="progress-marker"></div>
+        </div>
+        <div id="progress-label-bot">
+          <span class="pin" id="progress-layer">Layer 0 · Survival</span>
+          <button id="reset" title="Reset all answers">reset all</button>
+        </div>
+      </div>
+    </div>
+    <div id="qbody"></div>
+    <div id="nav">
+      <button class="nav-btn" id="prev-btn">← Previous</button>
+      <button class="nav-btn primary" id="next-btn">Next →</button>
+    </div>
+  </div>
+  <div id="viz">
+    <div id="panel-resize" role="separator" aria-orientation="horizontal" aria-label="Resize panel">
+      <div id="panel-resize-grip"></div>
+      <i id="panel-resize-chevron" class="fa-solid fa-chevron-up" aria-hidden="true"></i>
+    </div>
+    <div id="legend-toggle" tabindex="0">
+      <div class="info-btn"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></div>
+      <div id="legend-popup">
+        <div style="font-weight:600;color:#fff;margin-bottom:6px;">Phase per Layer</div>
+        <div class="row"><span class="swatch s-survive"></span> Survive</div>
+        <div class="row"><span class="swatch s-build"></span> Build</div>
+        <div class="row"><span class="swatch s-scale"></span> Scale</div>
+        <div class="row"><span class="swatch s-none"></span> Not started</div>
+        <div style="margin-top:8px;font-size:11px;color:var(--muted);">
+          Drag to rotate · Scroll to zoom · Click a layer to jump
+        </div>
+      </div>
+    </div>
+    <button id="unsaved-chip" type="button" hidden title="Sign in to save your progress">
+      <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+      <span>unsaved · sign in</span>
+    </button>
+    <button id="network-toggle" type="button" title="See all hubs in the network">
+      <i class="fa-solid fa-globe" aria-hidden="true"></i>
+    </button>
+    <button id="profile-toggle" type="button" title="Sovereignty Hub Details">
+      <i class="fa-solid fa-user" aria-hidden="true"></i>
+    </button>
+    <div id="viz-popup" class="viz-popup" hidden>
+      <div class="vp-header">
+        <i class="vp-icon" aria-hidden="true"></i>
+        <span class="vp-title"></span>
+        <button class="vp-close" aria-label="Close">×</button>
+      </div>
+      <div class="vp-body"></div>
+    </div>
+  </div>
+</div>
+
+<div id="network-overlay" hidden>
+  <div id="network-canvas-host"></div>
+  <div id="network-header">
+    <span id="network-title">All Hubs</span>
+    <span id="network-count"></span>
+  </div>
+  <button id="network-close" type="button" title="Back">
+    <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+  </button>
+  <div id="network-loading" hidden>Loading hubs…</div>
+  <div id="network-empty" hidden>No hubs to show yet.</div>
+  <div id="network-viewer-popup" class="viz-popup" hidden>
+    <div class="vp-header">
+      <i class="vp-icon" aria-hidden="true"></i>
+      <span class="vp-title"></span>
+      <button class="vp-close" aria-label="Close">×</button>
+    </div>
+    <div class="vp-body"></div>
+  </div>
+</div>
+
+<div id="hub-modal" class="modal" hidden>
+  <div class="modal-backdrop"></div>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="hub-modal-title">
+    <h3 id="hub-modal-title">Sovereign Hub Details</h3>
+    <label>
+      <span>Hub name</span>
+      <input type="text" id="hub-name-input" maxlength="60" placeholder="Your hub's display name" />
+    </label>
+    <label>
+      <span>Hub email</span>
+      <input type="email" id="hub-email-input" maxlength="120" placeholder="contact@yourhub.example" autocomplete="email" />
+    </label>
+    <label>
+      <span>Hub image</span>
+      <div class="image-cropper">
+        <div class="cropper-canvas-wrap" id="cropper-wrap">
+          <canvas id="cropper-canvas" width="110" height="110"></canvas>
+          <div class="cropper-circle-mask"></div>
+          <div class="cropper-placeholder" id="cropper-placeholder">
+            <i class="fa-solid fa-image" aria-hidden="true"></i>
+            <span>Upload an image</span>
+          </div>
+        </div>
+        <div class="cropper-controls">
+          <label class="file-row">
+            <input type="file" id="hub-image-input" accept="image/*" />
+            <span class="file-btn">Choose image</span>
+          </label>
+          <div class="zoom-row">
+            <span>Zoom</span>
+            <input type="range" id="cropper-zoom" min="0.5" max="4" step="0.01" value="1" disabled />
+            <button type="button" id="hub-image-clear" class="link-btn">Clear</button>
+          </div>
+        </div>
+      </div>
+    </label>
+    <label>
+      <span>Hub external link</span>
+      <input type="url" id="hub-link-input" placeholder="https://yourhub.example" />
+    </label>
+    <div id="hub-signed-in-row" class="signed-in-row" hidden>
+      <span>Signed in as <span id="hub-signed-in-email"></span></span>
+      <button type="button" id="hub-sign-out" class="link-btn">Sign out</button>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="nav-btn" id="hub-cancel">Cancel</button>
+      <button type="button" class="nav-btn primary" id="hub-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="auth-modal" class="modal" hidden>
+  <div class="modal-backdrop"></div>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+    <h3 id="auth-modal-title">Sign in or create an account</h3>
+    <label>
+      <span>Email</span>
+      <input type="email" id="auth-email-input" placeholder="you@example.com" autocomplete="email" />
+    </label>
+    <p class="auth-help">
+      We'll email you a one-tap sign-in link. If you're new, your account is created when you click it.
+    </p>
+    <div id="auth-status" class="auth-status"></div>
+    <div class="modal-actions">
+      <button type="button" class="nav-btn" id="auth-cancel">Cancel</button>
+      <button type="button" class="nav-btn primary" id="auth-send">Send magic link</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

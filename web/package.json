@@ -1,0 +1,20 @@
+{
+  "name": "hub-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Sovereignty Hub — 13 Pillars survey, globe view, and hub network",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.105.4",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
