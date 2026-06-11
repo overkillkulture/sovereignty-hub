@@ -274,33 +274,77 @@
     #panel { border-right: none; border-top: none; }
   }
   #header {
-    padding: 12px 20px 10px;
+    padding: 0 0 0;
     border-bottom: 1px solid var(--line);
     background: var(--panel-2);
   }
+  /* ---------- Pillar tab bar ---------- */
+  #pillar-tabs {
+    display: flex;
+    overflow-x: auto;
+    gap: 0;
+    padding: 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    border-bottom: 1px solid var(--line);
+  }
+  #pillar-tabs::-webkit-scrollbar { display: none; }
+  .pillar-tab {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 6px 6px;
+    min-width: 52px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 9px;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.15s ease, background 0.15s ease;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+  }
+  .pillar-tab i { font-size: 16px; }
+  .pillar-tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .pillar-tab.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+    background: rgba(255,255,255,0.04);
+  }
+  .pillar-tab .tab-pip {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--scale);
+    display: none;
+  }
+  .pillar-tab.has-answers .tab-pip { display: block; }
   #progress-area {
     position: relative;
     user-select: none;
+    padding: 8px 16px 6px;
   }
   #progress-label-top, #progress-label-bot {
     position: relative;
     height: 18px;
     font-size: 11px;
     color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
-  #progress-label-top .pin, #progress-label-bot .pin {
-    position: absolute;
-    transform: translateX(-50%);
-    white-space: nowrap;
-    transition: left 0.25s ease;
-  }
-  #progress-label-top .pin {
+  #progress-pillar {
     color: var(--text);
     font-weight: 600;
-    bottom: 2px;
-  }
-  #progress-label-bot .pin {
-    top: 0;
   }
   #ptext-count {
     position: absolute;
@@ -371,181 +415,142 @@
     overflow-y: auto;
     padding: 18px 20px;
   }
-  .pillar-chip {
-    display: inline-block;
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 3px 8px;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--line);
-    color: var(--muted);
-    margin-bottom: 8px;
+  /* (old single-question chips removed — replaced by layer cards) */
+  /* ---------- Layer cards (all 7 per pillar) ---------- */
+  .pillar-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
   }
-  .layer-chip {
-    display: inline-block;
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 3px 8px;
-    border-radius: 999px;
-    background: transparent;
-    border: 1px solid var(--line);
-    color: var(--muted);
-    margin-left: 6px;
-    margin-bottom: 8px;
-  }
-  #question {
-    font-size: 18px;
-    line-height: 1.4;
+  .pillar-heading i { font-size: 22px; }
+  .pillar-heading h2 {
+    margin: 0;
+    font-size: 16px;
     font-weight: 600;
-    margin: 4px 0 6px;
   }
-  #qdesc {
-    font-size: 13px;
+  .pillar-heading .pillar-metaphor {
+    font-size: 11px;
     color: var(--muted);
-    line-height: 1.55;
-    margin-bottom: 18px;
+    font-weight: 400;
+    margin-left: auto;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
-  /* DESKTOP: four buttons in a row, textarea drops in below when a phase is picked */
-  .options {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-  }
-  .opt {
+  .layer-card {
     background: var(--panel-2);
     border: 1px solid var(--line);
-    color: var(--text);
-    padding: 10px 8px;
     border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    transition: border-color 0.15s ease;
+  }
+  .layer-card:hover { border-color: #3a4a5e; }
+  .layer-card.has-answer { border-left: 3px solid; }
+  .layer-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .layer-card-header .layer-num {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+    padding: 2px 6px;
+    min-width: 18px;
+    text-align: center;
+  }
+  .layer-card-header .layer-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .layer-card-header .layer-phase-badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.3);
+  }
+  .layer-qdesc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.45;
+    margin-bottom: 8px;
+  }
+  /* Phase buttons — inline row */
+  .phase-row {
+    display: flex;
+    gap: 4px;
+  }
+  .phase-btn {
+    flex: 1;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 6px 4px;
+    border-radius: 6px;
     cursor: pointer;
     font: inherit;
-    font-size: 12px;
-    transition: border-color 0.15s ease, background 0.15s ease, transform 0.05s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
     text-align: center;
-    gap: 6px;
-    min-height: 96px;
-    overflow: hidden;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
   }
-  .opt-desc {
-    grid-column: 1 / -1;
-    height: 0;
-    min-height: 0;
-    opacity: 0;
-    padding: 0 12px;
+  .phase-btn:hover { border-color: currentColor; }
+  .phase-btn.active {
+    border-color: currentColor;
+    background: rgba(255,255,255,0.06);
+    color: var(--text);
+  }
+  .phase-btn.ph-none { color: #8b9aab; }
+  .phase-btn.ph-none.active { background: rgba(139,154,171,0.12); color: #b6c2d1; }
+  .phase-btn.ph-survive { color: var(--survive); }
+  .phase-btn.ph-survive.active { background: rgba(231,76,60,0.15); }
+  .phase-btn.ph-build { color: var(--build); }
+  .phase-btn.ph-build.active { background: rgba(241,196,15,0.15); }
+  .phase-btn.ph-scale { color: var(--scale); }
+  .phase-btn.ph-scale.active { background: rgba(46,204,113,0.15); }
+  /* Description textarea in layer cards */
+  .layer-desc {
+    width: 100%;
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: rgba(0,0,0,0.2);
     border: 1px solid transparent;
-    background: var(--panel-2);
-    border-radius: 10px;
+    border-radius: 6px;
     color: var(--text);
     font: inherit;
-    font-size: 13px;
+    font-size: 12px;
     resize: none;
     outline: none;
-    pointer-events: none;
+    height: 0;
+    opacity: 0;
     overflow: hidden;
-    transition: height 0.3s ease, opacity 0.2s ease 0.05s, padding 0.3s ease, border-color 0.2s ease;
+    pointer-events: none;
+    transition: height 0.2s ease, opacity 0.15s ease, padding 0.2s ease, border-color 0.15s ease;
   }
-  .opt-desc::placeholder { color: var(--muted); opacity: 0.7; }
-  .opt-desc:focus { border-color: var(--accent); }
-  .options.has-selection .opt-desc {
-    height: 80px;
+  .layer-desc.visible {
+    height: 54px;
     opacity: 1;
-    padding: 10px 12px;
-    border-color: var(--line);
+    padding: 6px 10px;
     pointer-events: auto;
+    border-color: var(--line);
   }
-
-  /* MOBILE: inline collapsing layout to keep qbody from scrolling */
-  @media (max-width: 900px) {
-    .options {
-      display: flex;
-      align-items: stretch;
-      gap: 6px;
-      min-height: 56px;
-    }
-    .opt {
-      flex: 1 1 0;
-      min-width: 0;
-      min-height: 56px;
-      padding: 6px 4px;
-      gap: 4px;
-      transition:
-        flex 0.3s ease,
-        opacity 0.25s ease,
-        padding 0.3s ease,
-        margin 0.3s ease,
-        border-color 0.15s ease,
-        background 0.15s ease,
-        transform 0.05s ease;
-    }
-    .opt .label-sub { display: none; }
-    .options.has-selection .opt:not(.selected) {
-      flex: 0 0 0;
-      opacity: 0;
-      padding-left: 0;
-      padding-right: 0;
-      border-left-width: 0;
-      border-right-width: 0;
-      margin-left: -6px;
-      pointer-events: none;
-    }
-    .options.has-selection .opt:first-child:not(.selected) {
-      margin-left: 0;
-    }
-    .options.has-selection .opt.selected {
-      flex: 0 0 110px;
-      min-height: 56px;
-    }
-    .opt-desc {
-      grid-column: auto;
-      flex: 0 0 0;
-      height: auto;
-      min-height: 56px;
-      padding: 0;
-      transition: flex 0.3s ease, opacity 0.2s ease 0.1s, padding 0.3s ease, border-color 0.2s ease;
-    }
-    .options.has-selection .opt-desc {
-      flex: 1 1 auto;
-      height: auto;
-      min-height: 56px;
-      padding: 8px 10px;
-    }
-  }
-  .opt:hover { border-color: currentColor; background: #131b25; }
-  .opt:active { transform: translateY(1px); }
-  .opt.selected {
-    border-color: currentColor;
-    background: rgba(255,255,255,0.04);
-  }
-  .opt .dot {
-    width: 28px; height: 6px; border-radius: 2px;
-    border: 1px solid currentColor;
-    background: transparent;
-  }
-  .opt.selected .dot { background: currentColor; }
-  .opt.opt-none { color: #b6c2d1; }
-  .opt.opt-survive { color: var(--survive); }
-  .opt.opt-build { color: var(--build); }
-  .opt.opt-scale { color: var(--scale); }
-  .opt .label-main {
-    font-weight: 600;
-    color: var(--text);
-    font-size: 12px;
-    line-height: 1.1;
-  }
-  .opt .label-sub {
-    display: block;
-    font-size: 10.5px;
+  .layer-desc::placeholder { color: var(--muted); opacity: 0.6; }
+  .layer-desc:focus { border-color: var(--accent); }
+  /* Pillar score in progress area */
+  #pillar-score {
+    font-size: 11px;
     color: var(--muted);
-    line-height: 1.3;
-    font-weight: 400;
-    margin-top: 2px;
   }
   .pillar-icon-inline {
     margin-right: 6px;

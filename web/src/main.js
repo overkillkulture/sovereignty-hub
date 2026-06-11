@@ -73,6 +73,7 @@ function loadState() {
     hub = obj.hub || { name: '', imageDataUrl: '', link: '' };
     cursor = obj.cursor ?? 0;
     maxReached = obj.maxReached ?? 0;
+    activePillar = Math.min(Math.floor(cursor / LAYERS.length), PILLARS.length - 1);
   } catch (e) { /* ignore */ }
 }
 function saveState() {
@@ -560,13 +561,16 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   if (dx > 5 || dy > 5 || dt > 500) return;
   const hit = pickBar(e.clientX, e.clientY);
   if (hit) {
-    const target = hit.pIdx * LAYERS.length + hit.lIdx;
-    cursor = target;
+    activePillar = hit.pIdx;
+    cursor = hit.pIdx * LAYERS.length + hit.lIdx;
     maxReached = Math.max(maxReached, cursor);
     saveState();
-    hoverState = null;            // drop hover; outline will stick to new cursor target
-    renderQuestion();              // triggers focus animation + calls refreshOutline
+    hoverState = null;
+    renderPillarView();
     showPopupForLayer(hit.pIdx, hit.lIdx);
+    // Scroll the clicked layer card into view in the panel
+    const card = qbody.querySelector(`.layer-card[data-lidx="${hit.lIdx}"]`);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
   if (pickHub(e.clientX, e.clientY)) {
@@ -771,12 +775,62 @@ const progressBar = document.getElementById('progress-bar');
 const progressMarker = document.getElementById('progress-marker');
 const progressTicks = document.getElementById('progress-ticks');
 const progressPillarLabel = document.getElementById('progress-pillar');
-const progressLayerLabel = document.getElementById('progress-layer');
+const pillarScoreEl = document.getElementById('pillar-score');
 const ptextCount = document.getElementById('ptext-count');
 const resetBtn = document.getElementById('reset');
+const pillarTabsEl = document.getElementById('pillar-tabs');
+
+let activePillar = 0; // which pillar tab is selected (0-12)
 
 function hasAnswer(pIdx, lIdx) {
   return answers[answerKey(pIdx, lIdx)] !== undefined;
+}
+
+// Count answered layers for a pillar
+function pillarAnsweredCount(pIdx) {
+  let count = 0;
+  for (let l = 0; l < LAYERS.length; l++) {
+    const v = answers[answerKey(pIdx, l)];
+    if (v && v !== 'none') count++;
+  }
+  return count;
+}
+
+// Total answered across all pillars
+function totalAnswered() {
+  let count = 0;
+  for (let p = 0; p < PILLARS.length; p++) {
+    count += pillarAnsweredCount(p);
+  }
+  return count;
+}
+
+// Build pillar tab bar
+function buildPillarTabs() {
+  const frag = document.createDocumentFragment();
+  PILLARS.forEach((p, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'pillar-tab';
+    btn.dataset.idx = i;
+    btn.innerHTML = `<i class="${p.faClass}" aria-hidden="true"></i><span>${p.name}</span><span class="tab-pip"></span>`;
+    btn.addEventListener('click', () => selectPillar(i));
+    frag.appendChild(btn);
+  });
+  pillarTabsEl.appendChild(frag);
+}
+buildPillarTabs();
+
+function updateTabStates() {
+  pillarTabsEl.querySelectorAll('.pillar-tab').forEach((tab, i) => {
+    tab.classList.toggle('active', i === activePillar);
+    tab.style.color = i === activePillar ? PILLARS[i].color : '';
+    tab.classList.toggle('has-answers', pillarAnsweredCount(i) > 0);
+  });
+}
+
+function scrollTabIntoView(pIdx) {
+  const tab = pillarTabsEl.children[pIdx];
+  if (tab) tab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
 }
 
 // Build the 91 tick marks once (major every 7 = pillar boundary)
@@ -811,207 +865,196 @@ const pillarFills = [];
   progressBar.appendChild(frag);
 })();
 
-function paintPillarFills(c) {
-  // c = current cursor (0..TOTAL_Q). Each pillar segment fills proportionally up to c.
+function paintPillarFills() {
   for (let p = 0; p < PILLARS.length; p++) {
-    const filledLayers = Math.max(0, Math.min(LAYERS.length, c - p * LAYERS.length));
-    pillarFills[p].style.width = `${(filledLayers / LAYERS.length) * 100}%`;
+    const filled = pillarAnsweredCount(p);
+    pillarFills[p].style.width = `${(filled / LAYERS.length) * 100}%`;
   }
 }
 
 function updateProgress() {
-  if (cursor >= TOTAL_Q) {
-    paintPillarFills(TOTAL_Q);
-    progressMarker.style.left = '100%';
-    progressPillarLabel.style.left = '100%';
-    progressLayerLabel.style.left = '100%';
-    progressPillarLabel.textContent = 'Complete';
-    progressLayerLabel.textContent = '';
-    ptextCount.textContent = `${TOTAL_Q} / ${TOTAL_Q}`;
-    return;
-  }
-  const { pillar, layer } = questionAt(cursor);
-  const pct = (cursor / TOTAL_Q) * 100;
-  paintPillarFills(cursor);
+  const pillar = PILLARS[activePillar];
+  const answered = totalAnswered();
+  const pillarAns = pillarAnsweredCount(activePillar);
+
+  paintPillarFills();
+
+  // Position marker at active pillar center
+  const pct = ((activePillar + 0.5) / PILLARS.length) * 100;
   progressMarker.style.left = `${pct}%`;
-  progressPillarLabel.style.left = `${pct}%`;
-  progressLayerLabel.style.left = `${pct}%`;
   progressPillarLabel.textContent = `Pillar ${pillar.n} · ${pillar.name}`;
-  progressLayerLabel.textContent = `Layer ${layer.i} · ${layer.name}`;
-  ptextCount.textContent = `${cursor + 1} / ${TOTAL_Q}`;
+  pillarScoreEl.textContent = `${pillarAns} / ${LAYERS.length} layers · ${answered} / ${TOTAL_Q} total`;
+  ptextCount.textContent = `${answered} / ${TOTAL_Q}`;
 }
 
-function renderQuestion() {
-  if (cursor >= TOTAL_Q) { renderDone(); return; }
-  const { pIdx, lIdx, pillar, layer } = questionAt(cursor);
+function selectPillar(pIdx) {
+  activePillar = pIdx;
+  // Update cursor to match (for persistence compatibility)
+  cursor = pIdx * LAYERS.length;
+  maxReached = Math.max(maxReached, cursor);
+  saveState();
+  hidePopup();
+  renderPillarView();
+}
+
+function renderPillarView() {
+  const pIdx = activePillar;
+  const pillar = PILLARS[pIdx];
+
   setFocus(pIdx);
-  focusPillarAnimated(pIdx); // idempotent — alreadyThere check skips if no change needed
-  refreshOutline();          // sticky outline follows the cursor
+  focusPillarAnimated(pIdx);
+  refreshOutline();
+  updateTabStates();
+  scrollTabIntoView(pIdx);
 
-  const qKey = answerKey(pIdx, lIdx);
-  const current = answers[qKey]; // undefined if not answered
-  const hasSel = current !== undefined && current !== null;
-  const descVal = descriptions[qKey] || '';
-
-  const ctx = SURVEY_CONTENT[pIdx]?.[lIdx];
-  const subFor = (phKey) => (ctx && typeof ctx[phKey] === 'string') ? ctx[phKey] : '';
-  const qdescText = ctx?.qdesc || layer.desc;
-
-  qbody.innerHTML = `
-    <span class="pillar-chip" style="border-color:${pillar.color};color:${pillar.color}">
-      <i class="${pillar.faClass} pillar-icon-inline" aria-hidden="true"></i>Pillar ${pillar.n} · ${pillar.name}
-    </span>
-    <span class="layer-chip">Layer ${layer.i} · ${layer.name}</span>
-    <div id="question">How far along are you with <em style="color:${pillar.color}">${pillar.name}</em> at the <em style="color:var(--muted)">${layer.name}</em> layer?</div>
-    <div id="qdesc">${escapeHtml(qdescText)}</div>
-    <div class="options ${hasSel ? 'has-selection' : ''}">
-      ${PHASES.map(ph => {
-        const sub = subFor(ph.key);
-        return `
-        <button class="opt opt-${ph.key} ${current === ph.key ? 'selected' : ''}" data-phase="${ph.key}" title="${escapeHtml(sub)}">
-          <span class="dot"></span>
-          <span class="label-main">${ph.label}</span>
-          <span class="label-sub">${escapeHtml(sub)}</span>
-        </button>`;
-      }).join('')}
-      <textarea class="opt-desc" placeholder="What are you doing for ${escapeHtml(pillar.name.toLowerCase())} at this layer? (auto-saved)">${escapeHtml(descVal)}</textarea>
+  // Build all 7 layer cards
+  let html = `
+    <div class="pillar-heading">
+      <i class="${pillar.faClass}" style="color:${pillar.color}" aria-hidden="true"></i>
+      <h2 style="color:${pillar.color}">${pillar.name}</h2>
+      <span class="pillar-metaphor">${escapeHtml(pillar.metaphor)}</span>
     </div>
   `;
 
-  const optsEl = qbody.querySelector('.options');
-  const descEl = qbody.querySelector('.opt-desc');
+  LAYERS.forEach((layer, lIdx) => {
+    const qKey = answerKey(pIdx, lIdx);
+    const current = answers[qKey] || 'none';
+    const hasAns = current !== 'none';
+    const descVal = descriptions[qKey] || '';
+    const ctx = SURVEY_CONTENT[pIdx]?.[lIdx];
+    const qdescText = ctx?.qdesc || layer.desc;
 
-  // auto-save description on input (debounced) + live-toggle the comment dot
-  let saveTimer = null;
-  descEl.addEventListener('input', () => {
-    descriptions[qKey] = descEl.value;
-    pillarNodes[pIdx].bars[lIdx].commentDot.visible = !!descEl.value.trim();
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => saveState(), 250);
+    // Phase color for border
+    const phaseColor = current === 'scale' ? 'var(--scale)'
+                     : current === 'build' ? 'var(--build)'
+                     : current === 'survive' ? 'var(--survive)'
+                     : 'transparent';
+    const phaseLabel = current !== 'none' ? current.charAt(0).toUpperCase() + current.slice(1) : '';
+    const badgeColor = current === 'scale' ? 'var(--scale)'
+                     : current === 'build' ? 'var(--build)'
+                     : current === 'survive' ? 'var(--survive)'
+                     : 'var(--muted)';
+
+    html += `
+      <div class="layer-card ${hasAns ? 'has-answer' : ''}" style="border-left-color:${phaseColor}" data-pidx="${pIdx}" data-lidx="${lIdx}">
+        <div class="layer-card-header">
+          <span class="layer-num">L${layer.i}</span>
+          <span class="layer-name">${layer.name}</span>
+          ${phaseLabel ? `<span class="layer-phase-badge" style="color:${badgeColor};border:1px solid ${badgeColor}">${phaseLabel}</span>` : ''}
+        </div>
+        <div class="layer-qdesc">${escapeHtml(qdescText)}</div>
+        <div class="phase-row">
+          ${PHASES.map(ph => `<button class="phase-btn ph-${ph.key} ${current === ph.key ? 'active' : ''}" data-phase="${ph.key}" data-pidx="${pIdx}" data-lidx="${lIdx}">${ph.label}</button>`).join('')}
+        </div>
+        <textarea class="layer-desc ${hasAns ? 'visible' : ''}" data-key="${qKey}" placeholder="Notes on ${escapeHtml(pillar.name.toLowerCase())} · ${escapeHtml(layer.name.toLowerCase())}…">${escapeHtml(descVal)}</textarea>
+      </div>
+    `;
   });
 
-  qbody.querySelectorAll('.opt').forEach(btn => {
+  qbody.innerHTML = html;
+
+  // Wire up phase buttons
+  qbody.querySelectorAll('.phase-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const phase = btn.dataset.phase;
-      const wasSelected = btn.classList.contains('selected');
-      if (wasSelected) {
-        // toggle off — go back to no-selection state and bring all 4 buttons back
+      const pi = parseInt(btn.dataset.pidx);
+      const li = parseInt(btn.dataset.lidx);
+      const qKey = answerKey(pi, li);
+      const card = btn.closest('.layer-card');
+      const wasActive = btn.classList.contains('active');
+
+      if (wasActive) {
+        // Toggle off
         delete answers[qKey];
-        saveState();
-        updateViz();
-        optsEl.classList.remove('has-selection');
-        btn.classList.remove('selected');
-        nextBtn.disabled = !canAdvanceFrom(cursor);
-        return;
+      } else {
+        setAnswer(pi, li, phase);
       }
-      setAnswer(pIdx, lIdx, phase);
       saveState();
       updateViz();
-      qbody.querySelectorAll('.opt').forEach(b => b.classList.toggle('selected', b.dataset.phase === phase));
-      optsEl.classList.add('has-selection');
-      nextBtn.disabled = !canAdvanceFrom(cursor);
-      // focus the description input after the transition lands
-      setTimeout(() => { if (descEl) descEl.focus(); }, 340);
+      updateTabStates();
+      updateProgress();
+
+      // Re-render just this card's buttons + badge
+      const newPhase = answers[qKey] || 'none';
+      const hasAns = newPhase !== 'none';
+      card.querySelectorAll('.phase-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.phase === newPhase);
+      });
+      card.classList.toggle('has-answer', hasAns);
+      const badge = card.querySelector('.layer-phase-badge');
+      const descArea = card.querySelector('.layer-desc');
+      const phColor = newPhase === 'scale' ? 'var(--scale)'
+                    : newPhase === 'build' ? 'var(--build)'
+                    : newPhase === 'survive' ? 'var(--survive)'
+                    : 'transparent';
+      card.style.borderLeftColor = phColor;
+
+      if (hasAns) {
+        const label = newPhase.charAt(0).toUpperCase() + newPhase.slice(1);
+        if (badge) {
+          badge.textContent = label;
+          badge.style.color = phColor;
+          badge.style.borderColor = phColor;
+        } else {
+          const headerEl = card.querySelector('.layer-card-header');
+          const newBadge = document.createElement('span');
+          newBadge.className = 'layer-phase-badge';
+          newBadge.style.color = phColor;
+          newBadge.style.borderColor = phColor;
+          newBadge.textContent = label;
+          headerEl.appendChild(newBadge);
+        }
+        descArea.classList.add('visible');
+      } else {
+        if (badge) badge.remove();
+        descArea.classList.remove('visible');
+        card.style.borderLeftColor = 'transparent';
+      }
+    });
+  });
+
+  // Wire up description textareas
+  qbody.querySelectorAll('.layer-desc').forEach(ta => {
+    let debounce = null;
+    ta.addEventListener('input', () => {
+      const key = ta.dataset.key;
+      descriptions[key] = ta.value;
+      // Parse pIdx/lIdx from key
+      const [pi, li] = key.split('-').map(Number);
+      pillarNodes[pi].bars[li].commentDot.visible = !!ta.value.trim();
+      clearTimeout(debounce);
+      debounce = setTimeout(() => saveState(), 250);
     });
   });
 
   updateProgress();
 
-  // nav buttons
-  prevBtn.disabled = cursor === 0;
-  nextBtn.disabled = !canAdvanceFrom(cursor);
-  nextBtn.textContent = (cursor === TOTAL_Q - 1) ? 'Finish →' : 'Next →';
-}
-
-function canAdvanceFrom(idx) {
-  const { pIdx, lIdx } = questionAt(idx);
-  return hasAnswer(pIdx, lIdx) || idx < maxReached;
-}
-
-function renderDone() {
-  setFocus(-1);
-  hideOutline();
-  controls.target.set(0, 0, 0);
-  // count phases
-  const counts = { none:0, survive:0, build:0, scale:0 };
-  for (let p = 0; p < PILLARS.length; p++) {
-    for (let l = 0; l < LAYERS.length; l++) {
-      counts[getAnswer(p, l)]++;
-    }
-  }
-  // build mini-grid: 13 cols (pillars) × 7 rows (layers, top = innovation)
-  let gridHTML = '<div class="summary-grid" style="grid-template-columns:repeat(13, 1fr);">';
-  for (let l = LAYERS.length - 1; l >= 0; l--) {
-    for (let p = 0; p < PILLARS.length; p++) {
-      const phase = getAnswer(p, l);
-      const c = PHASE_COLORS[phase].getStyle();
-      gridHTML += `<div class="summary-cell" style="background:${c}" title="${PILLARS[p].name} · L${l} ${LAYERS[l].name}: ${phase}"></div>`;
-    }
-  }
-  gridHTML += '</div>';
-  // dominant phase
-  const totalReal = counts.survive + counts.build + counts.scale;
-  const dominant = totalReal > 0
-    ? (counts.scale >= counts.build && counts.scale >= counts.survive ? 'SCALE'
-        : counts.build >= counts.survive ? 'BUILD' : 'SURVIVE')
-    : 'NOT STARTED';
-  const dominantColor = dominant === 'SCALE' ? '#2ecc71'
-                      : dominant === 'BUILD' ? '#f1c40f'
-                      : dominant === 'SURVIVE' ? '#e74c3c' : '#8b9aab';
-
-  qbody.innerHTML = `
-    <div class="done-screen">
-      <h2>Your Sovereignty Map</h2>
-      <p>You answered all <strong>${TOTAL_Q}</strong> coordinates across 13 pillars × 7 layers.</p>
-      <div style="font-size:32px;font-weight:700;color:${dominantColor};margin:14px 0 6px;">${dominant}</div>
-      <p style="margin-top:0;">is your dominant phase right now.</p>
-      ${gridHTML}
-      <p style="font-size:12px;">
-        <span style="color:#e74c3c;">${counts.survive}</span> Survive ·
-        <span style="color:#f1c40f;">${counts.build}</span> Build ·
-        <span style="color:#2ecc71;">${counts.scale}</span> Scale ·
-        <span style="color:#8b9aab;">${counts.none}</span> Not started
-      </p>
-      <p style="font-size:13px;color:#8b9aab;margin-top:18px;">
-        Rotate the visualization on the left to see the full shape.
-        Layers with no color are your next opportunities.
-      </p>
-    </div>
-  `;
-  prevBtn.disabled = false;
-  nextBtn.disabled = true;
-  nextBtn.textContent = 'Done';
-  updateProgress();
+  // Nav buttons
+  prevBtn.disabled = activePillar === 0;
+  nextBtn.disabled = activePillar === PILLARS.length - 1;
+  nextBtn.textContent = activePillar === PILLARS.length - 1 ? 'Summary →' : 'Next Pillar →';
+  prevBtn.textContent = '← Prev Pillar';
 }
 
 prevBtn.addEventListener('click', () => {
-  if (cursor > 0) {
-    cursor--;
-    saveState();
-    hidePopup();
-    renderQuestion();
+  if (activePillar > 0) {
+    selectPillar(activePillar - 1);
+    qbody.scrollTop = 0;
   }
 });
 nextBtn.addEventListener('click', () => {
-  if (cursor >= TOTAL_Q) return;
-  if (!canAdvanceFrom(cursor)) return;
-  if (cursor < TOTAL_Q - 1) {
-    cursor++;
-  } else {
-    cursor = TOTAL_Q;
+  if (activePillar < PILLARS.length - 1) {
+    selectPillar(activePillar + 1);
+    qbody.scrollTop = 0;
   }
-  maxReached = Math.max(maxReached, cursor);
-  saveState();
-  hidePopup();
-  renderQuestion();
 });
 resetBtn.addEventListener('click', () => {
   if (!confirm('Reset all answers and start over?')) return;
-  answers = {}; descriptions = {}; cursor = 0; maxReached = 0;
+  answers = {}; descriptions = {}; cursor = 0; maxReached = 0; activePillar = 0;
   saveState();
   hidePopup();
   updateViz();
-  renderQuestion();
+  renderPillarView();
 });
 
 // ---------- Hub settings modal + circle image cropper ----------
@@ -1277,12 +1320,13 @@ async function hydrateFromRemote() {
     cursor       = remote.cursor;
     maxReached   = remote.maxReached;
     hub          = remote.hub;
+    activePillar = Math.min(Math.floor(cursor / LAYERS.length), PILLARS.length - 1);
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ answers, descriptions, hub, cursor, maxReached }));
   }
   updateViz();
   updateHubDisplay();
   updateProgress();
-  renderQuestion();
+  renderPillarView();
   refreshAuthUI();
 }
 
@@ -1461,6 +1505,6 @@ resizeHandle.addEventListener('pointercancel', endResize);
 loadState();
 updateViz();
 updateHubDisplay();
-renderQuestion();
+renderPillarView();
 refreshAuthUI();    // paint chip / pip with whatever loadState left us
 initAuth();         // kicks off async session read + subscription
